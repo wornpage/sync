@@ -1,35 +1,57 @@
-import { describe, test, expect } from 'bun:test';
-import { generateSyncCode, hashSyncCode, shareUrl } from '../src/index';
+import { describe, it, expect } from 'bun:test';
+import { generateSyncCode, normalizeSyncCode, syncClientId } from '../src/index.ts';
 
 describe('generateSyncCode', () => {
-	test('returns string of requested length', () => {
-		expect(generateSyncCode(8).length).toBe(8);
-		expect(generateSyncCode(24).length).toBe(24);
-	});
+  it('produces a code in XXXX-XXXX-XXXX-XXXX format', () => {
+    const code = generateSyncCode();
+    expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  });
 
-	test('generates unique values', () => {
-		const a = generateSyncCode(16);
-		const b = generateSyncCode(16);
-		expect(a).not.toBe(b);
-	});
+  it('generates unique codes', () => {
+    const a = generateSyncCode();
+    const b = generateSyncCode();
+    expect(a).not.toBe(b);
+  });
+
+  it('never contains ambiguous characters', () => {
+    for (let i = 0; i < 100; i++) {
+      const code = generateSyncCode();
+      expect(code).not.toMatch(/[0O1I]/);
+    }
+  });
 });
 
-describe('hashSyncCode', () => {
-	test('returns sync- prefixed string', async () => {
-		const hash = await hashSyncCode('test-code');
-		expect(hash).toStartWith('sync-');
-	});
+describe('normalizeSyncCode', () => {
+  it('accepts valid codes', () => {
+    expect(normalizeSyncCode('ABCD-EFGH-JKLM-NPQR')).toBe('ABCD-EFGH-JKLM-NPQR');
+  });
 
-	test('deterministic for same input', async () => {
-		const a = await hashSyncCode('hello');
-		const b = await hashSyncCode('hello');
-		expect(a).toBe(b);
-	});
+  it('uppercases and strips spaces', () => {
+    expect(normalizeSyncCode('abcd efgh jklm npqr')).toBe('ABCD-EFGH-JKLM-NPQR');
+  });
+
+  it('rejects invalid formats', () => {
+    expect(normalizeSyncCode('not-a-code')).toBeNull();
+    expect(normalizeSyncCode('ABC-EFG')).toBeNull();
+    expect(normalizeSyncCode('')).toBeNull();
+  });
 });
 
-describe('shareUrl', () => {
-	test('builds URL with sync param', () => {
-		const url = shareUrl('abc123', 'https://demo.example.com');
-		expect(url).toContain('sync=abc123');
-	});
+describe('syncClientId', () => {
+  it('returns a sync- prefixed base64url string', async () => {
+    const id = await syncClientId('TEST-CODE-0000-0000');
+    expect(id).toMatch(/^sync-[A-Za-z0-9_-]+$/);
+  });
+
+  it('is deterministic', async () => {
+    const a = await syncClientId('SAME-CODE-1234-5678');
+    const b = await syncClientId('SAME-CODE-1234-5678');
+    expect(a).toBe(b);
+  });
+
+  it('differs for different codes', async () => {
+    const a = await syncClientId('CODE-AAAA-AAAA-AAAA');
+    const b = await syncClientId('CODE-BBBB-BBBB-BBBB');
+    expect(a).not.toBe(b);
+  });
 });

@@ -1,42 +1,51 @@
-const STORAGE_KEY = 'wrn-sync-code-v1';
-const SYNC_PREFIX = 'projects-web-demo-sync:';
-
-export async function hashSyncCode(syncCode: string, prefix: string = SYNC_PREFIX): Promise<string> {
-	if (!globalThis.crypto?.subtle) return '';
-	const digest = await crypto.subtle.digest(
-		'SHA-256',
-		new TextEncoder().encode(`${prefix}${syncCode}`)
-	);
-	const bytes = new Uint8Array(digest);
-	let binary = '';
-	bytes.forEach((b) => { binary += String.fromCharCode(b); });
-	const base64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-	return `sync-${base64url.slice(0, 64)}`;
+/**
+ * Generate a random sync code in the format XXXX-XXXX-XXXX-XXXX.
+ * Uses crypto.randomUUID() and maps to an alphanumeric code.
+ */
+export function generateSyncCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/I/1 for readability
+  const segments = 4;
+  const segmentLen = 4;
+  const bytes = new Uint8Array(segments * segmentLen);
+  crypto.getRandomValues(bytes);
+  const parts: string[] = [];
+  for (let s = 0; s < segments; s++) {
+    let part = '';
+    for (let i = 0; i < segmentLen; i++) {
+      part += chars[bytes[s * segmentLen + i] % chars.length];
+    }
+    parts.push(part);
+  }
+  return parts.join('-');
 }
 
-export function generateSyncCode(length: number = 24): string {
-	const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-	let result = '';
-	const array = new Uint8Array(length);
-	crypto.getRandomValues(array);
-	for (let i = 0; i < length; i++) {
-		result += chars[array[i] % chars.length];
-	}
-	return result;
+/**
+ * Derive a stable client ID from a sync code using SHA-256.
+ * Returns "sync-<base64url>" — safe for headers and localStorage keys.
+ */
+export async function syncClientId(syncCode: string): Promise<string> {
+  const data = new TextEncoder().encode("projects-web-demo-sync:" + syncCode);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const bytes = new Uint8Array(hash);
+  const base64url = btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return "sync-" + base64url.slice(0, 64);
 }
 
-export function readStoredCode(key: string = STORAGE_KEY): string {
-	try { return localStorage.getItem(key) || ''; } catch { return ''; }
-}
-
-export function writeStoredCode(code: string, key: string = STORAGE_KEY): void {
-	try { localStorage.setItem(key, code); } catch {}
-}
-
-export function clearStoredCode(key: string = STORAGE_KEY): void {
-	try { localStorage.removeItem(key); } catch {}
-}
-
-export function shareUrl(syncCode: string, base: string = window.location.origin): string {
-	return `${base}?sync=${encodeURIComponent(syncCode)}`;
+/**
+ * Normalize a user-entered sync code (uppercase, strip whitespace, validate format).
+ * Returns the normalized code or null if invalid.
+ */
+export function normalizeSyncCode(raw: string): string | null {
+  const cleaned = raw.toUpperCase().replace(/\s/g, '');
+  // Accept with or without dashes — insert dashes if missing
+  let normalized = cleaned.replace(/[^A-Z0-9]/g, '');
+  if (normalized.length !== 16) return null;
+  normalized = normalized.replace(/(.{4})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4');
+  if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalized)) {
+    return null;
+  }
+  return normalized;
 }

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>@wornpage/sync — Demo</title>
+  <style>
+    body { font-family: system-ui; max-width: 480px; margin: 40px auto; padding: 0 20px; }
+    code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 14px; }
+    .result { background: #e8f5e9; padding: 12px; border-radius: 8px; margin: 12px 0; word-break: break-all; }
+    button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
+    input { padding: 8px; font-size: 14px; width: 200px; }
+    label { display: block; margin: 12px 0 4px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>@wornpage/sync</h1>
+  <p>Demo state sync code generation and hashing. No accounts needed — share a code to share state.</p>
+
+  <label>Generate a sync code</label>
+  <button onclick="generate()">Generate</button>
+  <div class="result" id="code-output"></div>
+
+  <label>Normalize a code</label>
+  <input id="raw-input" placeholder="abcd efgh jklm npqr" />
+  <button onclick="normalize()">Normalize</button>
+  <div class="result" id="norm-output"></div>
+
+  <label>Hash a code to client ID</label>
+  <button onclick="hash()">Hash</button>
+  <div class="result" id="hash-output"></div>
+
+  <script type="module">
+    import { generateSyncCode, normalizeSyncCode, syncClientId } from './src/index.ts';
+
+    window.generate = () => {
+      const code = generateSyncCode();
+      document.getElementById('code-output').textContent = code;
+    };
+
+    window.normalize = () => {
+      const raw = document.getElementById('raw-input').value;
+      const result = normalizeSyncCode(raw);
+      document.getElementById('norm-output').textContent = result ?? 'Invalid code format';
+    };
+
+    window.hash = async () => {
+      const raw = document.getElementById('raw-input').value;
+      const normalized = normalizeSyncCode(raw);
+      if (!normalized) {
+        document.getElementById('hash-output').textContent = 'Normalize the code first';
+        return;
+      }
+      const id = await syncClientId(normalized);
+      document.getElementById('hash-output').textContent = id;
+    };
+
+    // Generate one on load
+    document.getElementById('code-output').textContent = generateSyncCode();
+  </script>
+</body>
+</html>

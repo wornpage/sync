@@ -1,0 +1,17 @@
+{
+  "name": "@wornpage/sync",
+  "version": "0.1.0",
+  "description": "Sync code generation, SHA-256 hashing, localStorage, QR sharing — zero deps",
+  "type": "module",
+  "scripts": { "test": "bun test" },
+  "main": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": ["src"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/wornpage/sync.git" }
+}
